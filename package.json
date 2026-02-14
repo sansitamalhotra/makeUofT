@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
     "express": "^5.2.1",
     "framer-motion": "^11.0.8",
     "react": "^18.3.1",
