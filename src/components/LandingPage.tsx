@@ -25,9 +25,8 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       exit={{ opacity: 0 }}
       className="flex flex-col items-center justify-center min-h-screen p-8 relative overflow-hidden"
     >
-      {/* Background Blobs - More Visible! */}
+      {/* Background Blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Large Blue Blob - Top Left */}
         <motion.div
           className="absolute -top-64 -left-64 w-[600px] h-[600px] rounded-full blur-3xl"
           style={{
@@ -45,7 +44,6 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
           }}
         />
 
-        {/* Large Purple Blob - Bottom Right */}
         <motion.div
           className="absolute -bottom-64 -right-64 w-[700px] h-[700px] rounded-full blur-3xl"
           style={{
@@ -63,7 +61,6 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
           }}
         />
 
-        {/* Cyan Blob - Center */}
         <motion.div
           className="absolute top-1/3 left-1/2 w-[500px] h-[500px] rounded-full blur-3xl"
           style={{
@@ -81,7 +78,6 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
           }}
         />
 
-        {/* Pink Blob - Top Right */}
         <motion.div
           className="absolute top-32 right-1/4 w-[450px] h-[450px] rounded-full blur-3xl"
           style={{
@@ -99,7 +95,6 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
           }}
         />
 
-        {/* Teal Blob - Bottom Left */}
         <motion.div
           className="absolute bottom-1/4 left-1/4 w-[550px] h-[550px] rounded-full blur-3xl"
           style={{
@@ -117,7 +112,6 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
           }}
         />
 
-        {/* Small Indigo Blob - Middle Right */}
         <motion.div
           className="absolute top-1/2 right-1/3 w-[400px] h-[400px] rounded-full blur-3xl"
           style={{
@@ -153,7 +147,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
             fontFamily: 'system-ui, -apple-system, sans-serif'
           }}
         >
-          PillPal
+          PillTrack
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0 }}
@@ -165,7 +159,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
         </motion.p>
       </motion.div>
 
-      {/* 3D Pillbox - BIGGER! */}
+      {/* 3D Pillbox - Better hover effect */}
       <motion.div
         className="relative mb-20"
         onHoverStart={() => setIsOpen(true)}
@@ -194,16 +188,11 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
           />
         ))}
 
-        {/* Main Pillbox Container - BIGGER */}
+        {/* Main Pillbox Container */}
         <motion.div
           className="relative"
           animate={{
-            rotateY: isOpen ? 15 : 0,
-            scale: isOpen ? 1.05 : 1,
-          }}
-          style={{
-            transformStyle: 'preserve-3d',
-            perspective: '1000px'
+            scale: isOpen ? 1.03 : 1,
           }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         >
@@ -217,22 +206,18 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 className="relative"
               >
                 {/* Day Label */}
-                <motion.div 
-                  className="text-center text-base font-bold text-gray-700 mb-3"
-                  animate={isOpen ? { y: -5 } : {}}
-                >
+                <div className="text-center text-base font-bold text-gray-700 mb-3">
                   {day}
-                </motion.div>
+                </div>
                 
-                {/* Compartment Lid - BIGGER & MORE SPACE */}
+                {/* Compartment - Just glow on hover, no rotation */}
                 <motion.div
                   className={`relative w-20 h-28 bg-gradient-to-br ${pillboxColors[index]} rounded-xl shadow-lg overflow-hidden cursor-pointer`}
-                  whileHover={{ scale: 1.1, y: -8 }}
-                  animate={{
-                    rotateX: isOpen ? -60 : 0,
-                    transformOrigin: 'bottom',
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
                   }}
-                  transition={{ type: 'spring', stiffness: 300 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                 >
                   {/* Shine effect */}
                   <motion.div
@@ -247,13 +232,14 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                     }}
                   />
 
-                  {/* Pills inside - MORE SPACE */}
+                  {/* Pills inside - visible when hovering over container */}
                   <AnimatePresence>
                     {isOpen && (
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ delay: index * 0.05 }}
                         className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3"
                       >
                         <motion.div

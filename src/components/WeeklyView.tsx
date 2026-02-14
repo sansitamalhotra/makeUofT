@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { playSound } from '../utils/sounds';
+import ScanFlow from './ScanFlow';
 
 interface WeeklyViewProps {
   onBack: () => void;
@@ -14,6 +15,10 @@ interface DayStatus {
 }
 
 const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
+  const [showScanner, setShowScanner] = useState(false);
+  const [meds, setMeds] = useState(medications);
+  const [showMedList, setShowMedList] = useState(false);
+  
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const [dayStatuses, setDayStatuses] = useState<Record<number, DayStatus>>(
     Object.fromEntries(days.map((_, i) => [i, { 
@@ -141,6 +146,27 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
     setShowRefillAlert(false);
   };
 
+  const handleScanComplete = (pillData: any) => {
+    setMeds([...meds, pillData]);
+    setShowScanner(false);
+  };
+
+  const handleDeleteMed = (index: number) => {
+    playSound('whoosh');
+    setMeds(meds.filter((_, i) => i !== index));
+  };
+
+  // MOVED: Render scanner AFTER all hooks
+  if (showScanner) {
+    return (
+      <ScanFlow
+        onComplete={handleScanComplete}
+        onAddAnother={() => setShowScanner(true)}
+        onBack={() => setShowScanner(false)}
+      />
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 100 }}
@@ -148,6 +174,122 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
       exit={{ opacity: 0, x: -100 }}
       className="flex flex-col items-center min-h-screen p-8 pt-24"
     >
+      {/* Floating Buttons - Scan & Manage Meds */}
+      <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-50">
+        {/* Manage Medications Button */}
+        {meds.length > 0 && (
+          <motion.button
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            whileHover={{ scale: 1.15 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowMedList(!showMedList)}
+            className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl border-4 border-white"
+            style={{
+              boxShadow: '0 10px 40px rgba(168, 85, 247, 0.5)'
+            }}
+          >
+            💊
+          </motion.button>
+        )}
+
+        {/* Scan New Medication Button */}
+        <motion.button
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          whileHover={{ scale: 1.15, rotate: 90 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowScanner(true)}
+          className="w-20 h-20 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-full shadow-2xl flex items-center justify-center text-4xl font-light border-4 border-white"
+          style={{
+            boxShadow: '0 10px 40px rgba(59, 130, 246, 0.5)'
+          }}
+        >
+          <motion.span
+            animate={{
+              rotate: [0, 90, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          >
+            +
+          </motion.span>
+        </motion.button>
+      </div>
+
+      {/* Medication List Modal */}
+      <AnimatePresence>
+        {showMedList && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-8"
+            onClick={() => setShowMedList(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, y: 50 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl shadow-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            >
+              <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Your Medications
+              </h2>
+
+              {meds.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No medications yet. Scan one to get started!</p>
+              ) : (
+                <div className="space-y-4">
+                  {meds.map((med, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border-2 border-blue-100 flex items-center justify-between"
+                    >
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-gray-800">{med.name}</h3>
+                        <p className="text-blue-600 font-semibold">{med.dosage}</p>
+                        <p className="text-sm text-gray-600 mt-1">{med.instructions}</p>
+                        {med.schedule && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            📅 {med.schedule.frequency} daily at {med.schedule.times.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleDeleteMed(index)}
+                        className="ml-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center font-bold text-xl shadow-lg"
+                      >
+                        ×
+                      </motion.button>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowMedList(false)}
+                className="mt-6 w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg"
+              >
+                Close
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Confetti */}
       <AnimatePresence>
         {showConfetti && (
@@ -173,7 +315,6 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
                 }}
                 exit={{ opacity: 0 }}
               >
-                {/* Mix of confetti and sparkles */}
                 {i % 3 === 0 ? (
                   <div className="text-2xl">✨</div>
                 ) : (
@@ -294,7 +435,7 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
             Your Weekly Tracker
           </h1>
           <p className="text-xl text-gray-600">
-            {medications.length > 0 ? medications[0].name : 'Your Medications'} • Track your progress
+            {meds.length > 0 ? `${meds.length} medication${meds.length > 1 ? 's' : ''} tracked` : 'Track your progress'}
           </p>
 
           {/* Streak Counter */}
@@ -624,7 +765,7 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
         transition={{ delay: 1.5 }}
         className="mt-12 text-gray-500 text-center"
       >
-        💡 Click any day to mark your dose as taken • Hardware sensors auto-detect pill removal
+        💡 Click any day to mark as taken • 💊 View/delete meds • + Scan new medication
       </motion.p>
     </motion.div>
   );
