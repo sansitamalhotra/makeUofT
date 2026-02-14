@@ -1,12 +1,35 @@
 {
-  "name": "makeuoft",
+  "name": "pilltrack-app",
   "version": "1.0.0",
-  "description": "",
-  "main": "app.js",
   "type": "module",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "framer-motion": "^11.0.8",
+    "googleapis": "^171.4.0",
+    "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-webcam": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.4.21"
   },
   "repository": {
     "type": "git",
@@ -18,12 +41,5 @@
   "bugs": {
     "url": "https://github.com/sansitamalhotra/makeUofT/issues"
   },
-  "homepage": "https://github.com/sansitamalhotra/makeUofT#readme",
-  "dependencies": {
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "googleapis": "^171.4.0",
-    "multer": "^2.0.2",
-    "node-fetch": "^3.3.2"
-  }
+  "homepage": "https://github.com/sansitamalhotra/makeUofT#readme"
 }

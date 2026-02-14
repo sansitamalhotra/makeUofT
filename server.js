@@ -43,7 +43,7 @@ app.post("/analyze", async (req, res) => {
         const prompt = req.body.prompt || "Hello";
         console.log("Received prompt:", prompt);
 
-        const GEMINI_MODEL = "models/gemini-2.5-flash"; // make sure this exists
+        const GEMINI_MODEL = "models/gemini-2.5-pro";
 
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }]

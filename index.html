@@ -1,74 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <title>Gemini Camera Test</title>
-    <style>
-        video,
-        canvas {
-            width: 300px;
-            height: 225px;
-            border: 1px solid black;
-            margin: 10px;
-        }
-
-        button {
-            margin: 10px;
-            padding: 10px 20px;
-        }
-    </style>
-</head>
-
-<body>
-    <h1>Camera Capture for Gemini</h1>
-
-    <video id="video" autoplay></video>
-    <canvas id="canvas" style="display:none;"></canvas>
-    <div>
-        <button id="captureBtn">Capture</button>
-        <button id="analyzeBtn">Analyze Image</button>
-    </div>
-
-    <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const captureBtn = document.getElementById('captureBtn');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-
-        // Start camera
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => console.error("Camera error:", err));
-
-        // Capture frame to canvas
-        captureBtn.addEventListener('click', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0);
-            alert("Image captured! Ready to analyze.");
-        });
-
-        // Send captured image to server for Gemini analysis
-        analyzeBtn.addEventListener('click', async () => {
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-            const formData = new FormData();
-            formData.append("image", blob, "capture.jpg");
-
-            try {
-                const res = await fetch("http://localhost:3000/analyze-image", {
-                    method: "POST",
-                    body: formData
-                });
-                const data = await res.json();
-                console.log("Gemini Image Result:", data);
-                alert("Analysis result: " + JSON.stringify(data));
-            } catch (err) {
-                console.error("Error sending image:", err);
-            }
-        });
-    </script>
-</body>
-
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PillTrack - Smart Medication Management</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
