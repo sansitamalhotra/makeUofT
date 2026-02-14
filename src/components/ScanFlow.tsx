@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Webcam from 'react-webcam';
 
@@ -25,7 +25,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
 
   const startScanning = async (image: string) => {
     setStep('scanning');
-    
+
     // Simulate scanning progress
     for (let i = 0; i <= 100; i += 5) {
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -54,8 +54,15 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
       quantity: 30,
     };
 
-    setPillData(mockPillData);
-    setStep('results');
+    try {
+      await addToGoogleCalendar(mockPillData);
+      console.log("✅ Calendar event created");
+      setPillData(mockPillData);
+      setStep('results');
+    } catch (err) {
+      console.error("❌ Calendar error", err);
+      setStep('error');
+    }
   };
 
   const retake = () => {
@@ -74,8 +81,38 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
     // Don't call onAddAnother - just stay in scan mode
   };
 
+  const addToGoogleCalendar = async (pillData: any) => {
+    const now = new Date();
+
+    // Example: reminder tomorrow at 9am
+    const start = new Date(now);
+    start.setDate(start.getDate() + 1);
+    start.setHours(9, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setMinutes(end.getMinutes() + 15);
+
+    const response = await fetch("http://localhost:3000/calendar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        summary: `💊 Take ${pillData.name}`,
+        description: `${pillData.dosage}\n${pillData.frequency}\n${pillData.timing}`,
+        startDateTime: start.toISOString(),
+        endDateTime: end.toISOString()
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Calendar insert failed");
+    }
+
+    return response.json();
+  };
+
+
   return (
-      <motion.div
+    <motion.div
       initial={{ opacity: 0, x: 100 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -100 }}
@@ -85,7 +122,10 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
       <motion.button
         whileHover={{ scale: 1.05, x: -5 }}
         whileTap={{ scale: 0.95 }}
-        onClick={onBack}
+        onClick={async () => {
+          await addToCalendar(pillData);
+          onScanComplete(pillData);
+        }}
         className="absolute top-24 left-8 p-4 bg-white/80 backdrop-blur-sm rounded-full shadow-lg flex items-center gap-2 font-semibold text-gray-700 z-50"
       >
         ← Back
@@ -108,7 +148,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
               Scan Your Pill Bottle
             </h2>
             <p className="text-gray-600 text-lg mb-8">Position the prescription label clearly in the frame</p>
-            
+
             <motion.div
               className="relative rounded-3xl overflow-hidden shadow-2xl mb-8 bg-black"
               whileHover={{ scale: 1.02 }}
@@ -116,7 +156,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
               {/* Scanning Frame Animation */}
               <div className="absolute inset-0 z-10 pointer-events-none">
                 {/* Corner Brackets */}
-                {[[0,0], [0,1], [1,0], [1,1]].map(([x, y], i) => (
+                {[[0, 0], [0, 1], [1, 0], [1, 1]].map(([x, y], i) => (
                   <motion.div
                     key={i}
                     className="absolute w-16 h-16 border-4 border-cyan-400"
@@ -140,7 +180,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
                     }}
                   />
                 ))}
-                
+
                 {/* Scanning Line */}
                 <motion.div
                   className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-lg shadow-cyan-400/50"
@@ -204,7 +244,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
               />
 
               <div className="absolute inset-0 bg-gradient-to-t from-cyan-500/20 to-transparent rounded-3xl" />
-              
+
               {[...Array(12)].map((_, i) => (
                 <motion.div
                   key={i}
@@ -321,7 +361,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
             >
               <div className="text-6xl mb-3">💊</div>
             </motion.div>
-            
+
             <h2 className="text-4xl font-bold text-gray-800 mb-6">
               Medication Identified!
             </h2>
@@ -337,7 +377,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
                   {pillData.dosage}
                 </span>
               </div>
-              
+
               <h3 className="text-3xl font-bold text-gray-800 mb-6">
                 {pillData.name}
               </h3>
@@ -359,7 +399,7 @@ const ScanFlow = ({ onScanComplete, onAddAnother, onBack }: ScanFlowProps) => {
               >
                 Retake Photo
               </motion.button>
-              
+
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
