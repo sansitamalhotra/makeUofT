@@ -9,11 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "express": "^5.2.1",
     "framer-motion": "^11.0.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-webcam": "^7.2.0",
-    "serialport": "^13.0.0"
+    "serialport": "^13.0.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
