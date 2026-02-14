@@ -227,11 +227,6 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 {/* Compartment Lid - BIGGER & MORE SPACE */}
                 <motion.div
                   className={`relative w-20 h-28 bg-gradient-to-br ${pillboxColors[index]} rounded-xl shadow-lg overflow-hidden cursor-pointer`}
-                  whileHover={{ scale: 1.1, y: -8 }}
-                  animate={{
-                    rotateX: isOpen ? -60 : 0,
-                    transformOrigin: 'bottom',
-                  }}
                   transition={{ type: 'spring', stiffness: 300 }}
                 >
                   {/* Shine effect */}
@@ -248,39 +243,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                   />
 
                   {/* Pills inside - MORE SPACE */}
-                  <AnimatePresence>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3"
-                      >
-                        <motion.div
-                          className="w-10 h-10 rounded-full bg-gradient-to-br from-white to-blue-100 shadow-lg"
-                          animate={{
-                            y: [0, -3, 0],
-                          }}
-                          transition={{
-                            duration: 1.5,
-                            repeat: Infinity,
-                            delay: index * 0.1,
-                          }}
-                        />
-                        <motion.div
-                          className="w-8 h-8 rounded-full bg-gradient-to-br from-white to-pink-100 shadow-lg"
-                          animate={{
-                            y: [0, -2, 0],
-                          }}
-                          transition={{
-                            duration: 1.5,
-                            repeat: Infinity,
-                            delay: 0.3 + index * 0.1,
-                          }}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                 
                 </motion.div>
               </motion.div>
             ))}

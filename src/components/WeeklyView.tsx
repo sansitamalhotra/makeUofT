@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { playSound } from '../utils/sounds';
+import sensorData from './sensorStatus.json';
 
 interface WeeklyViewProps {
   onBack: () => void;
@@ -15,12 +16,68 @@ interface DayStatus {
 
 const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const [dayStatuses, setDayStatuses] = useState<Record<number, DayStatus>>(
-    Object.fromEntries(days.map((_, i) => [i, { 
-      taken: false, 
-      pillCount: i % 2 === 0 ? 3 : 2 
-    }]))
-  );
+ const [dayStatuses, setDayStatuses] = useState<Record<number, DayStatus>>(() => {
+    return Object.fromEntries(days.map((_, i) => {
+      const sensor = sensorData.sensors.find(s => s.id === i);
+      return [i, { 
+        taken: sensor ? sensor.pillCount === 0 : false, 
+        pillCount: sensor ? sensor.pillCount : 0,
+        time: sensor?.lastInteraction
+      }];
+    }));
+  });
+
+  // Tracks: { sensorId: { startTime: timestamp, targetValue: boolean } }
+const [pendingChanges, setPendingChanges] = useState<Record<number, { startTime: number, targetValue: boolean } | null>>({});
+
+//runs every times json updates
+  useEffect(() => {
+  const now = Date.now();
+  const updatedPending = { ...pendingChanges };
+  let statusNeedsUpdate = false;
+  const newDayStatuses = { ...dayStatuses };
+
+  sensorData.sensors.forEach((sensor) => {
+    const sensorId = sensor.id;
+    const isPillDetected = sensor.pillCount > 0; // "High" logic
+    const currentUIState = !dayStatuses[sensorId].taken; // true if UI thinks pill is there
+
+    // IF SENSOR DIFFERS FROM UI
+    if (isPillDetected !== currentUIState) {
+      // Is there already a timer running for this sensor?
+      if (!updatedPending[sensorId] || updatedPending[sensorId]?.targetValue !== isPillDetected) {
+        // Start a new 10-second "probation" timer
+        updatedPending[sensorId] = { startTime: now, targetValue: isPillDetected };
+      } else {
+        // Timer is already running. Has it been 10 seconds?
+        const elapsed = now - (updatedPending[sensorId]?.startTime || 0);
+        if (elapsed >= 10000) { // 10 seconds
+          // SUCCESS: Consistent for 10s. Register the change!
+          newDayStatuses[sensorId] = {
+            ...newDayStatuses[sensorId],
+            taken: !isPillDetected,
+            pillCount: sensor.pillCount,
+            time: !isPillDetected ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : newDayStatuses[sensorId].time
+          };
+          statusNeedsUpdate = true;
+          updatedPending[sensorId] = null; // Clear timer
+          
+          if (!isPillDetected) playSound('pop'); // Trigger sound on confirmed removal
+        }
+      }
+    } else {
+      // SENSOR MATCHES UI: Reset/Clear any pending timers for this sensor
+      if (updatedPending[sensorId]) {
+        updatedPending[sensorId] = null;
+      }
+    }
+  });
+
+  if (statusNeedsUpdate) setDayStatuses(newDayStatuses);
+  setPendingChanges(updatedPending);
+
+}, [sensorData]); 
+
   const [showConfetti, setShowConfetti] = useState(false);
   const [showRefillAlert, setShowRefillAlert] = useState(false);
   const [refillSent, setRefillSent] = useState(false);
@@ -117,20 +174,16 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
     }
   }, [remainingDays, refillSent]);
 
-  const handleTakePill = (dayIndex: number) => {
+ const handleTakePill = (dayIndex: number) => {
+    // Only allow manual "take" if hardware hasn't already detected it
     if (!dayStatuses[dayIndex].taken) {
       playSound('pop');
-      
-      setDayStatuses({
-        ...dayStatuses,
-        [dayIndex]: { 
-          taken: true, 
-          pillCount: 0,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      });
-      
       setShowConfetti(true);
+      
+      // Since this is for your ECE project, you might eventually replace 
+      // this log with a fetch() call to update your backend.
+      console.log(`Manual override: Pill taken for day ${dayIndex}`);
+      
       setTimeout(() => setShowConfetti(false), 3000);
     }
   };
@@ -293,9 +346,9 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
           }}>
             Your Weekly Tracker
           </h1>
-          <p className="text-xl text-gray-600">
-            {medications.length > 0 ? medications[0].name : 'Your Medications'} • Track your progress
-          </p>
+         <p className="text-xl text-gray-600">
+  {medications[0]?.name || "Daily Meds"} • {medications[0]?.dosage || "1 pill"} {medications[0]?.frequency || "daily"}
+</p>  
 
           {/* Streak Counter */}
           {streak > 0 && (
@@ -443,7 +496,6 @@ const WeeklyView = ({ onBack, medications }: WeeklyViewProps) => {
               <TiltCard>
                 <motion.button
                   onClick={() => handleTakePill(index)}
-                  whileHover={{ scale: status.taken ? 1 : 1.08, y: -8 }}
                   whileTap={{ scale: 0.95 }}
                   className={`relative w-full h-40 rounded-2xl border-4 transition-all overflow-hidden ${
                     status.taken 
