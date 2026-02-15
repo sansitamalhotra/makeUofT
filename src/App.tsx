@@ -8,11 +8,13 @@ import ProfilePage from './components/ProfilePage';
 import RefillTracker from './components/RefillTracker';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import DarkModeToggle from './components/DarkModeToggle';
+import SplashScreen from './components/SplashScreen';  // ← ADD THIS
 
 type Screen = 'landing' | 'weekly' | 'pharmacy' | 'profile' | 'refill-tracker' | 'analytics';
 type UserMode = 'patient' | 'pharmacy';
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);  // ← ADD THIS
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [userMode, setUserMode] = useState<UserMode>('patient');
   const [user, setUser] = useState<any>(null);
@@ -55,6 +57,10 @@ function App() {
   if (!user) {
     return <AuthPage onLogin={handleLogin} />;
   }
+  
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
 
   const bgClass = isDark 
     ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
@@ -73,7 +79,7 @@ function App() {
           <div className="flex items-center gap-3">
             <span className="text-3xl">💊</span>
             <span className={`text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent`}>
-              PillTrack
+              PillPal
             </span>
           </div>
 

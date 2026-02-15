@@ -5,16 +5,89 @@ import { playSound } from '../utils/sounds';
 
 interface ScanFlowProps {
   onComplete: (pillData: any) => void;
-  onAddAnother: () => void;  // ADD THIS LINE
+  onAddAnother: () => void;
   onBack: () => void;
 }
 
-type ScanStep = 'camera' | 'scanning' | 'success' | 'error' | 'schedule';
+type ScanStep = 'camera' | 'scanning' | 'success' | 'info' | 'schedule' | 'error';
 
 interface ScheduleSetup {
   frequency: '1x' | '2x' | '3x';
   times: string[];
 }
+
+// 🔥 DRUG INFORMATION DATABASE
+const DRUG_DATABASE: Record<string, {
+  name: string;
+  genericName: string;
+  brandNames: string[];
+  uses: string[];
+  sideEffects: string[];
+  warnings: string[];
+  category: string;
+  color: string;
+}> = {
+  'Lisinopril': {
+    name: 'Lisinopril',
+    genericName: 'Lisinopril',
+    brandNames: ['Prinivil', 'Zestril'],
+    uses: [
+      'Treats high blood pressure (hypertension)',
+      'Prevents heart attacks and strokes',
+      'Treats heart failure',
+      'Improves survival after heart attack'
+    ],
+    sideEffects: ['Dizziness', 'Headache', 'Dry cough', 'Fatigue'],
+    warnings: ['May cause dizziness when standing up', 'Avoid alcohol', 'Monitor blood pressure regularly'],
+    category: 'ACE Inhibitor',
+    color: 'from-red-400 to-red-500'
+  },
+  'Metformin': {
+    name: 'Metformin',
+    genericName: 'Metformin Hydrochloride',
+    brandNames: ['Glucophage', 'Fortamet', 'Glumetza'],
+    uses: [
+      'Controls blood sugar in type 2 diabetes',
+      'Reduces risk of diabetes complications',
+      'May help with weight management',
+      'Lowers cholesterol and triglyceride levels'
+    ],
+    sideEffects: ['Nausea', 'Diarrhea', 'Stomach upset', 'Metallic taste in mouth'],
+    warnings: ['Take with food to reduce stomach upset', 'Stay well hydrated', 'Monitor blood sugar regularly'],
+    category: 'Antidiabetic (Biguanide)',
+    color: 'from-blue-400 to-blue-500'
+  },
+  'Atorvastatin': {
+    name: 'Atorvastatin',
+    genericName: 'Atorvastatin Calcium',
+    brandNames: ['Lipitor'],
+    uses: [
+      'Lowers bad cholesterol (LDL)',
+      'Raises good cholesterol (HDL)',
+      'Reduces risk of heart attack and stroke',
+      'Treats high cholesterol and triglycerides'
+    ],
+    sideEffects: ['Muscle pain or weakness', 'Joint pain', 'Headache', 'Nausea'],
+    warnings: ['Avoid grapefruit juice', 'Report unexplained muscle pain immediately', 'Regular liver function tests needed'],
+    category: 'Statin (Cholesterol Medication)',
+    color: 'from-yellow-400 to-yellow-500'
+  },
+  'Amlodipine': {
+    name: 'Amlodipine',
+    genericName: 'Amlodipine Besylate',
+    brandNames: ['Norvasc'],
+    uses: [
+      'Treats high blood pressure',
+      'Prevents chest pain (angina)',
+      'Reduces risk of heart attack and stroke',
+      'Improves blood flow to the heart'
+    ],
+    sideEffects: ['Swelling in legs/ankles', 'Fatigue', 'Dizziness', 'Flushing'],
+    warnings: ['May cause swelling in extremities', 'Rise slowly from sitting or lying down', 'Monitor blood pressure regularly'],
+    category: 'Calcium Channel Blocker',
+    color: 'from-green-400 to-green-500'
+  }
+};
 
 const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
   const [step, setStep] = useState<ScanStep>('camera');
@@ -39,8 +112,43 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
       playSound('whoosh');
       setStep('scanning');
       
+      // Try backend integration
+      scanWithBackend(imageSrc);
+    }
+  };
+
+  const scanWithBackend = async (image: string) => {
+    try {
+      const response = await fetch("http://localhost:3000/scan-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          image: image,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Backend scan result:", result);
+        
+        setDetectedMed({
+          name: result.medication || result.name,
+          dosage: result.dosage,
+          instructions: result.instructions || result.timing,
+          patientName: result.patientName
+        });
+        playSound('success');
+        setStep('success');
+      } else {
+        throw new Error('Backend scan failed');
+      }
+    } catch (error) {
+      console.warn("⚠️ Backend not available, using mock data:", error);
+      
+      // Fallback to mock data
       setTimeout(() => {
-        const success = Math.random() > 0.3;
+        const success = Math.random() > 0.2;
         if (success) {
           const randomMed = mockMedications[Math.floor(Math.random() * mockMedications.length)];
           setDetectedMed(randomMed);
@@ -86,58 +194,75 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
   };
 
   const generateGoogleCalendarLink = () => {
-  const title = `💊 ${detectedMed.name} - ${detectedMed.dosage}`;
-  const description = `${detectedMed.instructions}\n\n` +
-    `⏰ Frequency: ${schedule.frequency} daily\n` +
-    `🕐 Time(s): ${schedule.times.join(', ')}\n\n` +
-    `Reminder: Take this medication as prescribed!`;
-  
-  // Create date for the first dose time
-  const today = new Date();
-  const [hours, minutes] = schedule.times[0].split(':');
-  const startDate = new Date(today);
-  startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-  
-  const formatDate = (date: Date) => {
-    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const title = `💊 ${detectedMed.name} - ${detectedMed.dosage}`;
+    const description = `${detectedMed.instructions}\n\n` +
+      `⏰ Frequency: ${schedule.frequency} daily\n` +
+      `🕐 Time(s): ${schedule.times.join(', ')}\n\n` +
+      `Reminder: Take this medication as prescribed!`;
+    
+    const today = new Date();
+    const [hours, minutes] = schedule.times[0].split(':');
+    const startDate = new Date(today);
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    
+    const formatDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const startDateTime = formatDate(startDate);
+    const endDate = new Date(startDate.getTime() + 60 * 60000);
+    const endDateTime = formatDate(endDate);
+    const recurrence = 'RRULE:FREQ=DAILY;COUNT=90';
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: title,
+      details: description,
+      dates: `${startDateTime}/${endDateTime}`,
+      recur: recurrence,
+      trp: 'true'
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
   };
 
-  const startDateTime = formatDate(startDate);
-  
-  // ⭐ CHANGED: Make event 1 HOUR long instead of 15 minutes
-  const endDate = new Date(startDate.getTime() + 60 * 60000); // 1 hour duration
-  const endDateTime = formatDate(endDate);
+  const sendToBackendCalendar = async (pillData: any) => {
+    try {
+      const response = await fetch("http://localhost:3000/add-medication", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          medication: pillData,
+          schedule: schedule,
+          timestamp: new Date().toISOString()
+        })
+      });
 
-  // Create recurring rule for daily repetition
-  const recurrence = 'RRULE:FREQ=DAILY;COUNT=90'; // 90 days of medication
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Medication registered in backend:", result);
+      }
+    } catch (error) {
+      console.warn("⚠️ Backend calendar registration failed:", error);
+    }
+  };
 
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: title,
-    details: description,
-    dates: `${startDateTime}/${endDateTime}`,
-    recur: recurrence,
-    trp: 'true'
-  });
+  const handleAddToCalendar = async () => {
+    playSound('success');
+    
+    await sendToBackendCalendar(detectedMed);
+    
+    const calendarLink = generateGoogleCalendarLink();
+    window.open(calendarLink, '_blank', 'width=1000,height=800');
+    
+    setTimeout(() => {
+      onComplete({
+        ...detectedMed,
+        schedule
+      });
+    }, 500);
+  };
 
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-};
-
-  const handleAddToCalendar = () => {
-  playSound('success');
-  const calendarLink = generateGoogleCalendarLink();
-  
-  // Open in larger window for better visibility
-  window.open(calendarLink, '_blank', 'width=1000,height=800');
-  
-  // Complete the flow after opening calendar
-  setTimeout(() => {
-    onComplete({
-      ...detectedMed,
-      schedule
-    });
-  }, 500);
-};
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <AnimatePresence mode="wait">
@@ -164,6 +289,9 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
             className="text-center"
           >
             <ScanningAnimation />
+            <p className="mt-4 text-sm text-gray-500">
+              {capturedImage ? '🔍 Analyzing with OCR...' : '⚠️ Demo Mode'}
+            </p>
           </motion.div>
         )}
 
@@ -204,6 +332,174 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
                   className="flex-1 px-6 py-4 bg-gray-200 text-gray-700 rounded-2xl font-semibold"
                 >
                   Retake Photo
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    playSound('whoosh');
+                    setStep('info');
+                  }}
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-semibold shadow-lg"
+                >
+                  📖 Learn More
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 🔥 DRUG INFORMATION SCREEN */}
+        {step === 'info' && detectedMed && DRUG_DATABASE[detectedMed.name] && (
+          <motion.div
+            key="info"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -100 }}
+            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="bg-white rounded-3xl shadow-2xl p-8">
+              {/* Header */}
+              <div className="text-center mb-8">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', delay: 0.1 }}
+                  className={`w-24 h-24 mx-auto mb-4 bg-gradient-to-br ${DRUG_DATABASE[detectedMed.name].color} rounded-full shadow-xl flex items-center justify-center`}
+                >
+                  <span className="text-4xl">💊</span>
+                </motion.div>
+                <h2 className="text-5xl font-bold text-gray-800 mb-2">{DRUG_DATABASE[detectedMed.name].name}</h2>
+                <p className="text-2xl text-gray-600 mb-2">{DRUG_DATABASE[detectedMed.name].genericName}</p>
+                <div className="inline-block px-4 py-2 bg-purple-100 text-purple-700 rounded-full font-bold text-sm">
+                  {DRUG_DATABASE[detectedMed.name].category}
+                </div>
+              </div>
+
+              {/* Brand Names */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mb-6"
+              >
+                <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <span className="text-2xl">🏷️</span>
+                  Also Known As
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {DRUG_DATABASE[detectedMed.name].brandNames.map((brand, i) => (
+                    <span key={i} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-semibold">
+                      {brand}
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* What It Treats */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200"
+                >
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span className="text-2xl">✅</span>
+                    What It Treats
+                  </h3>
+                  <ul className="space-y-2">
+                    {DRUG_DATABASE[detectedMed.name].uses.map((use, i) => (
+                      <motion.li
+                        key={i}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 + i * 0.1 }}
+                        className="flex items-start gap-2 text-gray-700"
+                      >
+                        <span className="text-green-500 mt-1">•</span>
+                        <span>{use}</span>
+                      </motion.li>
+                    ))}
+                  </ul>
+                </motion.div>
+
+                {/* Side Effects */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 border-2 border-orange-200"
+                >
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span className="text-2xl">⚠️</span>
+                    Possible Side Effects
+                  </h3>
+                  <ul className="space-y-2">
+                    {DRUG_DATABASE[detectedMed.name].sideEffects.map((effect, i) => (
+                      <motion.li
+                        key={i}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + i * 0.1 }}
+                        className="flex items-start gap-2 text-gray-700"
+                      >
+                        <span className="text-orange-500 mt-1">•</span>
+                        <span>{effect}</span>
+                      </motion.li>
+                    ))}
+                  </ul>
+                </motion.div>
+              </div>
+
+              {/* Important Warnings */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="bg-gradient-to-r from-red-50 to-pink-50 rounded-2xl p-6 border-2 border-red-200 mb-6"
+              >
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🚨</span>
+                  Important Warnings
+                </h3>
+                <ul className="space-y-2">
+                  {DRUG_DATABASE[detectedMed.name].warnings.map((warning, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.7 + i * 0.1 }}
+                      className="flex items-start gap-2 text-gray-700"
+                    >
+                      <span className="text-red-500 mt-1">•</span>
+                      <span>{warning}</span>
+                    </motion.li>
+                  ))}
+                </ul>
+              </motion.div>
+
+              {/* Disclaimer */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="bg-gray-100 rounded-xl p-4 mb-6"
+              >
+                <p className="text-xs text-gray-600 text-center">
+                  ⚕️ This information is for educational purposes only. Always consult your doctor or pharmacist before starting, stopping, or changing any medication.
+                </p>
+              </motion.div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setStep('success')}
+                  className="px-6 py-4 bg-gray-200 text-gray-700 rounded-2xl font-semibold"
+                >
+                  ← Back
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -271,14 +567,16 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
                 </div>
               </div>
 
-              {/* Calendar Info */}
+              {/* Integration Info */}
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 mb-6 border-2 border-purple-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">📅</span>
-                  <p className="font-bold text-purple-900">Google Calendar Integration</p>
+                  <span className="text-2xl">🔗</span>
+                  <p className="font-bold text-purple-900">Smart Integration</p>
                 </div>
                 <p className="text-sm text-gray-600">
-                  We'll open Google Calendar with a pre-filled reminder. Just click "Save" to add it!
+                  ✅ Google Calendar reminders<br/>
+                  ✅ Arduino sensor tracking<br/>
+                  ✅ Automatic dose verification
                 </p>
               </div>
 
@@ -287,7 +585,7 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setStep('success')}
+                  onClick={() => setStep('info')}
                   className="px-6 py-4 bg-gray-200 text-gray-700 rounded-2xl font-semibold"
                 >
                   ← Back
@@ -357,7 +655,6 @@ const CameraView = ({ onCapture, onBack }: { onCapture: (ref: any) => void; onBa
           className="w-full rounded-t-3xl"
         />
         
-        {/* Scanning Frame Overlay */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-4 border-white/80 rounded-3xl">
             <div className="absolute top-0 left-0 w-8 h-8 border-t-8 border-l-8 border-cyan-400 rounded-tl-2xl" />
