@@ -740,4 +740,4 @@ const ScanningAnimation = () => (
   </div>
 );
 
-export default ScanFlow;
+export default ScanFlow;    
