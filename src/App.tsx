@@ -50,7 +50,7 @@ function App() {
           <div className="flex items-center gap-3">
             <span className="text-3xl">💊</span>
             <span className={`text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent`}>
-              PillTrack
+              PillPal
             </span>
           </div>
 

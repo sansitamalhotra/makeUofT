@@ -147,7 +147,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
             fontFamily: 'system-ui, -apple-system, sans-serif'
           }}
         >
-          PillTrack
+          PillPal
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0 }}

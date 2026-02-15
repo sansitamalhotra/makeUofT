@@ -5,7 +5,7 @@ import { playSound } from '../utils/sounds';
 
 interface ScanFlowProps {
   onComplete: (pillData: any) => void;
-  onAddAnother: () => void;  // ADD THIS LINE
+  onAddAnother: () => void;
   onBack: () => void;
 }
 
@@ -39,8 +39,45 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
       playSound('whoosh');
       setStep('scanning');
       
+      // 🔥 BACKEND INTEGRATION: Send to your teammate's OCR backend
+      scanWithBackend(imageSrc);
+    }
+  };
+
+  const scanWithBackend = async (image: string) => {
+    try {
+      // Try to connect to backend (your teammate's OCR/Tesseract server)
+      const response = await fetch("http://localhost:3000/scan-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          image: image,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Backend scan result:", result);
+        
+        // Use real data from backend
+        setDetectedMed({
+          name: result.medication || result.name,
+          dosage: result.dosage,
+          instructions: result.instructions || result.timing,
+          patientName: result.patientName
+        });
+        playSound('success');
+        setStep('success');
+      } else {
+        throw new Error('Backend scan failed');
+      }
+    } catch (error) {
+      console.warn("⚠️ Backend not available, using mock data:", error);
+      
+      // Fallback to mock data for demo
       setTimeout(() => {
-        const success = Math.random() > 0.3;
+        const success = Math.random() > 0.2; // 80% success rate for demo
         if (success) {
           const randomMed = mockMedications[Math.floor(Math.random() * mockMedications.length)];
           setDetectedMed(randomMed);
@@ -86,58 +123,80 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
   };
 
   const generateGoogleCalendarLink = () => {
-  const title = `💊 ${detectedMed.name} - ${detectedMed.dosage}`;
-  const description = `${detectedMed.instructions}\n\n` +
-    `⏰ Frequency: ${schedule.frequency} daily\n` +
-    `🕐 Time(s): ${schedule.times.join(', ')}\n\n` +
-    `Reminder: Take this medication as prescribed!`;
-  
-  // Create date for the first dose time
-  const today = new Date();
-  const [hours, minutes] = schedule.times[0].split(':');
-  const startDate = new Date(today);
-  startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-  
-  const formatDate = (date: Date) => {
-    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const title = `💊 ${detectedMed.name} - ${detectedMed.dosage}`;
+    const description = `${detectedMed.instructions}\n\n` +
+      `⏰ Frequency: ${schedule.frequency} daily\n` +
+      `🕐 Time(s): ${schedule.times.join(', ')}\n\n` +
+      `Reminder: Take this medication as prescribed!`;
+    
+    const today = new Date();
+    const [hours, minutes] = schedule.times[0].split(':');
+    const startDate = new Date(today);
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    
+    const formatDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const startDateTime = formatDate(startDate);
+    const endDate = new Date(startDate.getTime() + 60 * 60000); // 1 hour
+    const endDateTime = formatDate(endDate);
+    const recurrence = 'RRULE:FREQ=DAILY;COUNT=90'; // 90 days
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: title,
+      details: description,
+      dates: `${startDateTime}/${endDateTime}`,
+      recur: recurrence,
+      trp: 'true'
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
   };
 
-  const startDateTime = formatDate(startDate);
-  
-  // ⭐ CHANGED: Make event 1 HOUR long instead of 15 minutes
-  const endDate = new Date(startDate.getTime() + 60 * 60000); // 1 hour duration
-  const endDateTime = formatDate(endDate);
+  const sendToBackendCalendar = async (pillData: any) => {
+    try {
+      // 🔥 Send medication + schedule to backend for Arduino tracking
+      const response = await fetch("http://localhost:3000/add-medication", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          medication: pillData,
+          schedule: schedule,
+          timestamp: new Date().toISOString()
+        })
+      });
 
-  // Create recurring rule for daily repetition
-  const recurrence = 'RRULE:FREQ=DAILY;COUNT=90'; // 90 days of medication
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Medication registered in backend:", result);
+      }
+    } catch (error) {
+      console.warn("⚠️ Backend calendar registration failed:", error);
+      // Continue anyway - frontend calendar still works
+    }
+  };
 
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: title,
-    details: description,
-    dates: `${startDateTime}/${endDateTime}`,
-    recur: recurrence,
-    trp: 'true'
-  });
+  const handleAddToCalendar = async () => {
+    playSound('success');
+    
+    // 1. Send to backend (for Arduino sensor tracking)
+    await sendToBackendCalendar(detectedMed);
+    
+    // 2. Open Google Calendar
+    const calendarLink = generateGoogleCalendarLink();
+    window.open(calendarLink, '_blank', 'width=1000,height=800');
+    
+    // 3. Complete the flow
+    setTimeout(() => {
+      onComplete({
+        ...detectedMed,
+        schedule
+      });
+    }, 500);
+  };
 
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-};
-
-  const handleAddToCalendar = () => {
-  playSound('success');
-  const calendarLink = generateGoogleCalendarLink();
-  
-  // Open in larger window for better visibility
-  window.open(calendarLink, '_blank', 'width=1000,height=800');
-  
-  // Complete the flow after opening calendar
-  setTimeout(() => {
-    onComplete({
-      ...detectedMed,
-      schedule
-    });
-  }, 500);
-};
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <AnimatePresence mode="wait">
@@ -164,6 +223,9 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
             className="text-center"
           >
             <ScanningAnimation />
+            <p className="mt-4 text-sm text-gray-500">
+              {capturedImage ? '🔍 Analyzing with OCR...' : '⚠️ Demo Mode'}
+            </p>
           </motion.div>
         )}
 
@@ -271,14 +333,16 @@ const ScanFlow = ({ onComplete, onAddAnother, onBack }: ScanFlowProps) => {
                 </div>
               </div>
 
-              {/* Calendar Info */}
+              {/* Calendar + Arduino Integration Info */}
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 mb-6 border-2 border-purple-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">📅</span>
-                  <p className="font-bold text-purple-900">Google Calendar Integration</p>
+                  <span className="text-2xl">🔗</span>
+                  <p className="font-bold text-purple-900">Smart Integration</p>
                 </div>
                 <p className="text-sm text-gray-600">
-                  We'll open Google Calendar with a pre-filled reminder. Just click "Save" to add it!
+                  ✅ Google Calendar reminders<br/>
+                  ✅ Arduino sensor tracking<br/>
+                  ✅ Automatic dose verification
                 </p>
               </div>
 
